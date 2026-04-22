@@ -1,0 +1,58 @@
+## SESSION-ABSCHLUSS: Kontext-Dokument generieren
+
+Wir beenden jetzt diese Arbeitssitzung am Projekt **LTI Identity** (`local_ltiidentity`).
+
+Erstelle ein kompaktes Kontext-Dokument für die nächste Sitzung.
+Halte dich an exakt diese Struktur:
+
+---
+
+# LTI Identity Kontext-Dokument
+Erstellt: [Datum + Uhrzeit]
+Zuletzt aktualisiert: [Datum + Uhrzeit oder „identisch mit erstellt“]
+Sitzung Nr.: [fortlaufend]
+
+## 1. Aktueller Projektstand
+- aktuelle Phase und ihr Ziel
+- abgeschlossene Phasen (stichpunktartig)
+- was in dieser Sitzung konkret erledigt wurde
+
+## 2. Finalisierte Artefakte
+Liste jeder Datei/Klasse, die in dieser oder einer früheren Sitzung als **fertig** markiert wurde:
+- Pfad relativ zum Plugin-Root
+- Ein-Satz-Beschreibung ihres Zwecks
+- etwaige bekannte Einschränkungen oder TODOs
+
+## 3. Offene Arbeitspakete (priorisiert)
+Was als nächstes zu tun ist, in Reihenfolge:
+1. [Datei/Klasse/Aufgabe] – warum, was genau
+2. …
+
+## 4. Architekturentscheidungen (verbindlich)
+Alle getroffenen Entscheidungen, die spätere Sitzungen binden:
+- Schnittstellen, die nicht mehr geändert werden sollen
+- DB-Schema-Entscheidungen
+- Namenskonventionen
+- Abweichungen vom ursprünglichen Pflichtenheft (mit Begründung)
+
+## 5. Kritische Abhängigkeiten
+Welche Klassen/Interfaces hängen voneinander ab und in welcher Reihenfolge müssen sie fertiggestellt werden?
+
+## 6. Bekannte Probleme und Risiken
+Offene technische Fragen, ungelöste Moodle-spezifische Probleme, Stellen mit erhöhtem Risiko.
+
+## 7. Versionen / Repository-Stand
+- Plugin-Komponente
+- aktuelle Version / Release / Maturity
+- relevante Branches
+- letzte bekannte Commit-Message dieser Sitzung (falls bekannt)
+
+## 8. Für die nächste Sitzung mitzugebende Dateien
+Welche konkreten Dateien aus dem Repo soll der nächste Arbeitslauf zu Beginn lesen, um arbeitsfähig zu sein?
+- [Pfad] – warum relevant
+
+## 9. Startpunkt für die nächste Sitzung
+Kurze, konkrete Empfehlung für die nächsten 3–5 Schritte.
+
+## 10. Kurzfazit
+1–3 Absätze zum Gesamtzustand. Wo keine Information vorliegt, explizit „unbekannt“ oder „nicht besprochen“ schreiben. Nichts erfinden.

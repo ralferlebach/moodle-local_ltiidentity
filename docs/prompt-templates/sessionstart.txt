@@ -1,0 +1,65 @@
+## SESSION-START: LTI Identity
+
+Du arbeitest als erfahrener Moodle-Architekt und PHP-Entwickler an einem laufenden Projekt.
+Lies zuerst alle bereitgestellten Dokumente und Dateien, bevor du Maßnahmen vorschlägst.
+
+---
+
+### A) Pflichtlektüre
+
+Bitte in dieser Reihenfolge einlesen und im Arbeitsspeicher halten:
+
+1. `docs/Lastenheft.md`
+2. `docs/Pflichtenheft.md`
+3. `docs/Blueprint.md`
+4. `docs/Moodle-Plugin Coding-Styles.md`
+5. `docs/coding-standards-prompt.md`
+6. das neueste Dokument unter `docs/sessions/`
+
+---
+
+### B) Codebasis
+
+Die Ziel-Codebasis ist das Moodle-Plugin:
+- `local_ltiidentity`: https://github.com/ralferlebach/moodle-local_ltiidentity
+
+Falls kein Git-Zugriff möglich ist, wird die aktuelle Codebasis als ZIP bereitgestellt.
+
+---
+
+### C) Projektregeln
+
+- Nutzerseitige Bezeichnung ist **LTI Identity**.
+- Der technische Komponentenname ist `local_ltiidentity`.
+- Das Plugin ist ein **lokales Moodle-Plugin** zur Umsetzung von **Fassade 1** auf der LTI-Provider-/Tool-Seite.
+- Moodle-Core wird **nicht** geforkt oder direkt gepatcht.
+- Kanonische Zielwerte für Personendaten bleiben `user.firstname`, `user.lastname` und optional `user.email`.
+- Zusätzliche Plugin-Persistenz ist nur zulässig, wenn sie für Priorisierung, Verifikation, Reconciliation oder Audit zwingend nötig ist.
+- Globale Namensregeln für anonyme oder unvollständige LTI-Logins sind Bestandteil des MVP.
+- Optionale Features sind standardmäßig deaktiviert und nur über Admin-Settings aktivierbar:
+  - Self-Service für LTI-Nutzer
+  - lokale E‑Mail-Pflege
+  - Duplicate-E‑Mail-Unterstützung
+  - kursbezogene Bulk-Bearbeitung
+- Das Plugin soll keine unnötigen plugin-spezifischen personenbezogenen Daten dauerhaft speichern.
+
+---
+
+### D) Delivery-Modus
+
+- Codeänderungen als ZIP-Datei mit korrekter Plugin-Struktur ausliefern.
+- Standardfall: nur geänderte Dateien in `local/ltiidentity/`.
+- Versionen nur erhöhen, wenn tatsächlich Plugin-Dateien geändert wurden.
+- Zu jeder Lieferung:
+  - eine englische Commit-Zeile
+  - bis zu 5 englische Bullet Points
+- Diagnose-Skripte, Shell-Kommandos, SQL oder JS nur im Chat ausgeben, nie als Download.
+
+---
+
+### E) Bevor du Code schreibst
+
+1. Fasse kurz zusammen, was du aus Lastenheft, Pflichtenheft, Blueprint und letzter Session verstanden hast.
+2. Benenne Zielkonflikte, Lücken oder Risiken.
+3. Ordne die aktuelle Aufgabe in die Architektur ein.
+4. Warte danach auf die Freigabe oder liefere — falls ausdrücklich gewünscht — direkt einen umsetzbaren Patch.
