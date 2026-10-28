@@ -1,5 +1,5 @@
 <?php
-// This file is part of Moodle - http://moodle.org/
+// This file is part of Moodle - https://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -12,20 +12,26 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Version metadata for the local_ltiidentity plugin.
+ * Plugin version and metadata.
  *
- * @package   local_ltiidentity
- * @copyright 2026 Ralf Erlebach
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    local_ltiidentity
+ * @copyright  2026 Ralf Erlebach
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_ltiidentity';
-$plugin->version = 2026042200;
-$plugin->requires = 2024042200;
-$plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.1.0';
+$plugin->version   = 2026102700;
+$plugin->requires  = 2024100700; // Moodle 4.5.
+$plugin->supported = [405, 503];
+$plugin->maturity  = MATURITY_ALPHA;
+$plugin->release   = '0.3.0';
+
+// Declare the MINIMUM version of each dependency that provides the API in use - never the current
+// build number. An exact pin breaks installation as soon as a sibling lags by a single release,
+// which is unavoidable while repositories are pushed one after another.
+$plugin->dependencies = [];

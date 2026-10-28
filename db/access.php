@@ -1,5 +1,5 @@
 <?php
-// This file is part of Moodle - http://moodle.org/
+// This file is part of Moodle - https://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -12,44 +12,52 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
  * Capability definitions for local_ltiidentity.
  *
- * @package   local_ltiidentity
- * @copyright 2026 Ralf Erlebach
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    local_ltiidentity
+ * @copyright  2026 Ralf Erlebach
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
 $capabilities = [
-    'local/ltiidentity:managesiteidentity' => [
-        'captype' => 'write',
-        'contextlevel' => CONTEXT_SYSTEM,
-        'archetypes' => [
-            'manager' => CAP_ALLOW,
-        ],
-    ],
-    'local/ltiidentity:managecourseidentity' => [
+    // Teachers: complete the profile of LTI users enrolled in their own course.
+    'local/ltiidentity:manage' => [
         'captype' => 'write',
         'contextlevel' => CONTEXT_COURSE,
+        'riskbitmask' => RISK_PERSONAL,
         'archetypes' => [
             'editingteacher' => CAP_ALLOW,
             'manager' => CAP_ALLOW,
         ],
     ],
-    'local/ltiidentity:selfeditidentity' => [
+    // LTI users: complete their own profile.
+    'local/ltiidentity:editown' => [
         'captype' => 'write',
-        'contextlevel' => CONTEXT_USER,
+        'contextlevel' => CONTEXT_SYSTEM,
+        'riskbitmask' => RISK_PERSONAL,
         'archetypes' => [
             'user' => CAP_ALLOW,
         ],
     ],
-    'local/ltiidentity:viewaudit' => [
+    // Managers: see on any LTI user's profile where first name, last name and e-mail came from (sources only, no values).
+    'local/ltiidentity:viewprovenance' => [
         'captype' => 'read',
         'contextlevel' => CONTEXT_SYSTEM,
+        'riskbitmask' => RISK_PERSONAL,
+        'archetypes' => [
+            'manager' => CAP_ALLOW,
+        ],
+    ],
+    // Administrators: release a local lock so that LTI claims may win again.
+    'local/ltiidentity:releaselock' => [
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_SYSTEM,
+        'riskbitmask' => RISK_PERSONAL,
         'archetypes' => [
             'manager' => CAP_ALLOW,
         ],

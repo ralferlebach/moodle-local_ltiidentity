@@ -1,0 +1,13 @@
+{
+  "name": "local_ltiidentity-playwright",
+  "version": "0.2.0",
+  "private": true,
+  "description": "End-to-end story for local_ltiidentity against the two-site LTI stack.",
+  "scripts": {
+    "test": "playwright test",
+    "install-browsers": "playwright install --with-deps chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.47.0"
+  }
+}

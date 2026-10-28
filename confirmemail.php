@@ -1,5 +1,5 @@
 <?php
-// This file is part of Moodle - http://moodle.org/
+// This file is part of Moodle - https://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -12,31 +12,55 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Confirmation endpoint for local email verification.
+ * Confirm a new e-mail address with the one-time token.
  *
- * @package   local_ltiidentity
- * @copyright 2026 Ralf Erlebach
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * GET shows a confirmation form (the token is only read, nothing changes). The change happens on
+ * POST with a valid sesskey, for the logged-in account that the request belongs to.
+ *
+ * @package    local_ltiidentity
+ * @copyright  2026 Ralf Erlebach
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require_once(__DIR__ . '/../../config.php');
 
-$token = required_param('token', PARAM_ALPHANUMEXT);
+use local_ltiidentity\local\email_verifier;
 
-require_login();
-$context = context_system::instance();
+$userid = required_param('userid', PARAM_INT);
+$token = required_param('token', PARAM_ALPHANUM);
 
-$url = new moodle_url('/local/ltiidentity/confirmemail.php', ['token' => $token]);
-$PAGE->set_url($url);
-$PAGE->set_context($context);
+require_login(null, false);
+if (isguestuser()) {
+    throw new moodle_exception('cannotmanageuser', 'local_ltiidentity');
+}
+
+$PAGE->set_url(new moodle_url('/local/ltiidentity/confirmemail.php', ['userid' => $userid, 'token' => $token]));
+$PAGE->set_context(context_user::instance($USER->id));
 $PAGE->set_pagelayout('standard');
-$PAGE->set_title(get_string('confirmemailchange', 'local_ltiidentity'));
-$PAGE->set_heading(get_string('confirmemailchange', 'local_ltiidentity'));
+$PAGE->set_title(get_string('confirmemail', 'local_ltiidentity'));
+$PAGE->set_heading(get_string('confirmemail', 'local_ltiidentity'));
+
+if (optional_param('confirm', 0, PARAM_BOOL)) {
+    require_sesskey();
+    $result = email_verifier::confirm($userid, $token, (int) $USER->id);
+    $type = $result === email_verifier::CONFIRMED ?
+        \core\output\notification::NOTIFY_SUCCESS : \core\output\notification::NOTIFY_ERROR;
+    redirect(
+        new moodle_url('/local/ltiidentity/profile.php'),
+        get_string('confirmresult_' . $result, 'local_ltiidentity'),
+        null,
+        $type
+    );
+}
 
 echo $OUTPUT->header();
-echo $OUTPUT->notification(get_string('emailconfirmplaceholder', 'local_ltiidentity'), 'info');
-echo $OUTPUT->continue_button(new moodle_url('/my/'));
+echo $OUTPUT->heading(get_string('confirmemail', 'local_ltiidentity'));
+echo $OUTPUT->confirm(
+    get_string('confirmemailquestion', 'local_ltiidentity'),
+    new single_button(new moodle_url($PAGE->url, ['confirm' => 1]), get_string('confirm'), 'post', single_button::BUTTON_PRIMARY),
+    new moodle_url('/local/ltiidentity/profile.php')
+);
 echo $OUTPUT->footer();

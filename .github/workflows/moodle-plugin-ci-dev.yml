@@ -1,0 +1,434 @@
+##############################################################################
+# Moodle Plugin CI - development (accelerated) pipeline - local_ltiidentity
+#
+# Runs on push / PR to every branch EXCEPT main. Parallel jobs: phplint gates
+# phpunit; codeanalysis (phpcs blocking; phpmd/phpcpd advisory) and quality
+# (phpdoc/savepoints/validate) run in parallel and gate ci-complete. PHP-only
+# plugin: no grunt / mustache steps. Reduced matrix spanning Moodle 4.5/5.0/5.3.
+# The full sequential matrix runs on main via moodle-plugin-ci-main.yml.
+# Compatibility sample: PHPUnit on 4.5/PG16, 5.0/MariaDB 10.11, 5.3/PG17 and
+# 5.3/MariaDB 11.4; Behat on 4.5/MariaDB 10.11 and 5.3/PG17. Nothing that did
+# not run counts as green: PHPUnit fails on skipped/incomplete/risky tests and
+# when 0 tests ran; Behat fails on 0 scenarios and on skipped/undefined steps.
+#
+# The plugin has no plugin dependencies; moodle-plugin-ci installs it alone
+# (the LTI family plugins are independent of each other).
+##############################################################################
+
+name: Moodle Plugin CI Dev
+
+on:
+  push:
+    branches-ignore:
+      - main
+    tags:
+      - '[0-9]+'
+      - '[0-9]+.[0-9]+.[0-9]+'
+  pull_request:
+    branches-ignore:
+      - main
+
+concurrency:
+  group: ci-dev-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  lint-php:
+    name: "PHP lint (phplint)"
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: plugin
+      - name: Prepare log directory
+        run: mkdir -p ci-logs
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          ini-values: max_input_vars=5000
+          coverage: none
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer
+          key: composer-${{ runner.os }}-${{ github.sha }}
+          restore-keys: composer-${{ runner.os }}-
+      - name: Initialise moodle-plugin-ci
+        run: |
+          composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ci ^4
+          echo $(cd ci/bin; pwd) >> $GITHUB_PATH
+          echo $(cd ci/vendor/bin; pwd) >> $GITHUB_PATH
+          sudo locale-gen en_AU.UTF-8
+      - name: PHP Lint
+        if: ${{ always() }}
+        run: set -o pipefail; moodle-plugin-ci phplint plugin 2>&1 | tee ci-logs/phplint.log
+      - name: Collect error summary
+        if: ${{ always() }}
+        run: |
+          { echo "job: lint-php"; echo "status: ${{ job.status }}"; echo "ref: ${{ github.ref }}"; echo ""; ls -1 ci-logs; } > ci-logs/summary.txt
+          cat ci-logs/summary.txt
+      - name: Upload error summary (ZIP)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: error-summary-dev-lint-php
+          path: ci-logs
+          retention-days: 7
+          if-no-files-found: ignore
+
+  codeanalysis:
+    name: "Code analysis (phpcs + phpmd + phpcpd)"
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: plugin
+      - name: Prepare log directory
+        run: mkdir -p ci-logs
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          ini-values: max_input_vars=5000
+          coverage: none
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer
+          key: composer-${{ runner.os }}-${{ github.sha }}
+          restore-keys: composer-${{ runner.os }}-
+      - name: Initialise moodle-plugin-ci
+        run: |
+          composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ci ^4
+          echo $(cd ci/bin; pwd) >> $GITHUB_PATH
+          echo $(cd ci/vendor/bin; pwd) >> $GITHUB_PATH
+          sudo locale-gen en_AU.UTF-8
+      - name: Moodle Code Checker
+        if: ${{ always() }}
+        run: set -o pipefail; moodle-plugin-ci codechecker --max-warnings 0 --exclude=PSR1.Classes.ClassDeclaration,moodle.Commenting.TodoComment plugin 2>&1 | tee ci-logs/codechecker.log
+      - name: PHP Mess Detector
+        continue-on-error: true
+        if: ${{ always() }}
+        run: set -o pipefail; moodle-plugin-ci phpmd plugin 2>&1 | tee ci-logs/phpmd.log
+      - name: PHP Copy/Paste Detector
+        continue-on-error: true
+        if: ${{ always() }}
+        run: set -o pipefail; moodle-plugin-ci phpcpd plugin 2>&1 | tee ci-logs/phpcpd.log
+      - name: Collect error summary
+        if: ${{ always() }}
+        run: |
+          { echo "job: codeanalysis"; echo "status: ${{ job.status }}"; echo "ref: ${{ github.ref }}"; echo ""; ls -1 ci-logs; } > ci-logs/summary.txt
+          cat ci-logs/summary.txt
+      - name: Upload error summary (ZIP)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: error-summary-dev-codeanalysis
+          path: ci-logs
+          retention-days: 7
+          if-no-files-found: ignore
+
+  quality:
+    name: "Quality (phpdoc / savepoints / validate)"
+    runs-on: ubuntu-22.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: 'postgres'
+          POSTGRES_HOST_AUTH_METHOD: 'trust'
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: plugin
+      - name: Prepare log directory
+        run: mkdir -p ci-logs
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          ini-values: max_input_vars=5000
+          coverage: none
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer
+          key: composer-${{ runner.os }}-${{ github.sha }}
+          restore-keys: composer-${{ runner.os }}-
+      - name: Initialise moodle-plugin-ci
+        run: |
+          composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ci ^4
+          echo $(cd ci/bin; pwd) >> $GITHUB_PATH
+          echo $(cd ci/vendor/bin; pwd) >> $GITHUB_PATH
+          sudo locale-gen en_AU.UTF-8
+      - name: Install Moodle, dependencies and plugin (no test init)
+        run: |
+          moodle-plugin-ci install --plugin ./plugin --db-host=127.0.0.1 --no-init
+        env:
+          DB: pgsql
+          MOODLE_BRANCH: MOODLE_405_STABLE
+      - name: Moodle PHPDoc Checker
+        if: ${{ always() }}
+        run: set -o pipefail; moodle-plugin-ci phpdoc --max-warnings 0 2>&1 | tee ci-logs/phpdoc.log
+      - name: Check upgrade savepoints
+        if: ${{ always() }}
+        run: set -o pipefail; moodle-plugin-ci savepoints 2>&1 | tee ci-logs/savepoints.log
+      - name: Validating
+        if: ${{ always() }}
+        run: set -o pipefail; moodle-plugin-ci validate 2>&1 | tee ci-logs/validate.log
+      - name: Collect error summary
+        if: ${{ always() }}
+        run: |
+          { echo "job: quality"; echo "status: ${{ job.status }}"; echo "ref: ${{ github.ref }}"; echo ""; ls -1 ci-logs; } > ci-logs/summary.txt
+          cat ci-logs/summary.txt
+      - name: Upload error summary (ZIP)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: error-summary-dev-quality
+          path: ci-logs
+          retention-days: 7
+          if-no-files-found: ignore
+
+  phpunit:
+    name: "PHPUnit / ${{ matrix.moodle }} / PHP ${{ matrix.php }} / ${{ matrix.database }}"
+    runs-on: ubuntu-22.04
+    needs: [lint-php]
+    services:
+      postgres:
+        image: postgres:${{ matrix.pg }}
+        env:
+          POSTGRES_USER: 'postgres'
+          POSTGRES_HOST_AUTH_METHOD: 'trust'
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 3
+      mariadb:
+        image: mariadb:${{ matrix.maria }}
+        env:
+          MYSQL_USER: 'root'
+          MYSQL_ALLOW_EMPTY_PASSWORD: "true"
+        ports:
+          - 3306:3306
+        # mariadb:11.4 (required by Moodle 5.3) no longer ships mysqladmin, so "mysqladmin ping" made
+        # "Initialize containers" fail in every cell that starts this service. healthcheck.sh is in 10.11 and 11.4.
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { moodle: MOODLE_405_STABLE, php: '8.1', database: pgsql, pg: '16', maria: '10.11' }
+          - { moodle: MOODLE_500_STABLE, php: '8.2', database: mariadb, pg: '16', maria: '10.11' }
+          - { moodle: MOODLE_503_STABLE, php: '8.3', database: pgsql, pg: '17', maria: '11.4' }
+          - { moodle: MOODLE_503_STABLE, php: '8.4', database: mariadb, pg: '17', maria: '11.4' }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: plugin
+      - name: Prepare log directory
+        run: mkdir -p ci-logs
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          ini-values: max_input_vars=5000
+          coverage: none
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer
+          key: composer-${{ runner.os }}-${{ github.sha }}
+          restore-keys: composer-${{ runner.os }}-
+      - name: Initialise moodle-plugin-ci
+        run: |
+          composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ci ^4
+          echo $(cd ci/bin; pwd) >> $GITHUB_PATH
+          echo $(cd ci/vendor/bin; pwd) >> $GITHUB_PATH
+          sudo locale-gen en_AU.UTF-8
+      - name: Install Moodle, dependencies and plugin
+        run: |
+          moodle-plugin-ci install --plugin ./plugin --db-host=127.0.0.1
+        env:
+          DB: ${{ matrix.database }}
+          MOODLE_BRANCH: ${{ matrix.moodle }}
+      - name: PHPUnit tests
+        if: ${{ always() }}
+        run: set -o pipefail; moodle-plugin-ci phpunit --fail-on-warning --fail-on-risky --fail-on-skipped --fail-on-incomplete --testdox 2>&1 | tee ci-logs/phpunit.log
+      - name: PHPUnit must have executed tests (0 tests is not green)
+        if: ${{ always() }}
+        run: |
+          log=ci-logs/phpunit.log
+          if [ ! -s "$log" ]; then echo "::error::No PHPUnit log - the PHPUnit step did not run"; exit 1; fi
+          clean=$(sed -r 's/\x1B\[[0-9;]*[A-Za-z]//g' "$log")
+          if grep -q 'free pass' <<<"$clean"; then echo "::error::moodle-plugin-ci found no PHPUnit tests - 0 tests is not green"; exit 1; fi
+          n=$(grep -oE '^(OK \([0-9]+ tests?|Tests: [0-9]+)' <<<"$clean" | grep -oE '[0-9]+' | tail -1)
+          echo "PHPUnit tests executed: ${n:-none}"
+          if [ -z "$n" ] || [ "$n" -eq 0 ]; then echo "::error::PHPUnit executed 0 tests"; exit 1; fi
+      - name: Collect error summary
+        if: ${{ always() }}
+        run: |
+          { echo "job: phpunit (${{ matrix.moodle }} / PHP ${{ matrix.php }} / ${{ matrix.database }})"; echo "status: ${{ job.status }}"; echo "ref: ${{ github.ref }}"; echo ""; ls -1 ci-logs; } > ci-logs/summary.txt
+          cat ci-logs/summary.txt
+      - name: Upload error summary (ZIP)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: error-summary-dev-phpunit-${{ matrix.moodle }}-${{ matrix.php }}-${{ matrix.database }}
+          path: ci-logs
+          retention-days: 7
+          if-no-files-found: ignore
+
+  behat:
+    name: "Behat / ${{ matrix.moodle }} / PHP ${{ matrix.php }} / ${{ matrix.database }} / Chrome"
+    runs-on: ubuntu-22.04
+    needs: [lint-php]
+    services:
+      postgres:
+        image: postgres:${{ matrix.pg }}
+        env:
+          POSTGRES_USER: 'postgres'
+          POSTGRES_HOST_AUTH_METHOD: 'trust'
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 3
+      mariadb:
+        image: mariadb:${{ matrix.maria }}
+        env:
+          MYSQL_USER: 'root'
+          MYSQL_ALLOW_EMPTY_PASSWORD: "true"
+        ports:
+          - 3306:3306
+        # mariadb:11.4 (required by Moodle 5.3) no longer ships mysqladmin, so "mysqladmin ping" made
+        # "Initialize containers" fail in every cell that starts this service. healthcheck.sh is in 10.11 and 11.4.
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Lower bound (classic layout) and upper bound (public/ layout, PostgreSQL 17).
+          - { moodle: MOODLE_405_STABLE, php: '8.2', database: mariadb, pg: '16', maria: '10.11' }
+          - { moodle: MOODLE_503_STABLE, php: '8.3', database: pgsql, pg: '17', maria: '11.4' }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: plugin
+      - name: Prepare log directory
+        run: mkdir -p ci-logs
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          ini-values: max_input_vars=5000
+          coverage: none
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer
+          key: composer-${{ runner.os }}-${{ github.sha }}
+          restore-keys: composer-${{ runner.os }}-
+      - name: Initialise moodle-plugin-ci
+        run: |
+          composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ci ^4
+          echo $(cd ci/bin; pwd) >> $GITHUB_PATH
+          echo $(cd ci/vendor/bin; pwd) >> $GITHUB_PATH
+          sudo locale-gen en_AU.UTF-8
+      - name: Install Moodle, dependencies and plugin
+        run: |
+          moodle-plugin-ci install --plugin ./plugin --db-host=127.0.0.1
+        env:
+          DB: ${{ matrix.database }}
+          MOODLE_BRANCH: ${{ matrix.moodle }}
+      - name: Behat features
+        id: behat
+        if: ${{ always() }}
+        run: set -o pipefail; moodle-plugin-ci behat --profile chrome --tags "@local_ltiidentity&&~@broken" --dump 2>&1 | tee ci-logs/behat.log
+      - name: Behat must have run scenarios that all passed (0 scenarios, skipped or undefined steps are not green)
+        if: ${{ always() }}
+        run: |
+          log=ci-logs/behat.log
+          if [ ! -s "$log" ]; then echo "::error::No Behat log - the Behat step did not run"; exit 1; fi
+          clean=$(sed -r 's/\x1B\[[0-9;]*[A-Za-z]//g' "$log")
+          if grep -q 'free pass' <<<"$clean"; then echo "::error::No Behat features found - 0 scenarios is not green"; exit 1; fi
+          scen=$(grep -E '^[0-9]+ scenarios? \(' <<<"$clean" | tail -1)
+          steps=$(grep -E '^[0-9]+ steps? \(' <<<"$clean" | tail -1)
+          echo "Behat summary: ${scen:-none} / ${steps:-none}"
+          if [ -z "$scen" ] || [ "${scen%% *}" -eq 0 ]; then echo "::error::Behat ran 0 scenarios"; exit 1; fi
+          grep -qE '^([0-9]+) scenarios? \(\1 passed\)$' <<<"$scen" || { echo "::error::Not every Behat scenario passed: $scen"; exit 1; }
+          grep -qE '^([0-9]+) steps? \(\1 passed\)$' <<<"$steps" || { echo "::error::Skipped, undefined or pending Behat steps: $steps"; exit 1; }
+      - name: Collect error summary and Behat dumps
+        if: ${{ always() }}
+        run: |
+          if [ -d "$GITHUB_WORKSPACE/moodledata/behat_dump" ]; then
+            mkdir -p ci-logs/behat_dump
+            cp -a "$GITHUB_WORKSPACE/moodledata/behat_dump/." ci-logs/behat_dump/
+          fi
+          { echo "job: behat (${{ matrix.moodle }} / PHP ${{ matrix.php }} / ${{ matrix.database }})"; echo "status: ${{ job.status }}"; echo "ref: ${{ github.ref }}"; echo ""; ls -1 ci-logs; } > ci-logs/summary.txt
+          cat ci-logs/summary.txt
+      - name: Upload error summary (ZIP)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: error-summary-dev-behat-${{ matrix.moodle }}-${{ matrix.php }}-${{ matrix.database }}
+          path: ci-logs
+          retention-days: 7
+          if-no-files-found: ignore
+      - name: Upload Behat screenshots (ZIP)
+        if: ${{ failure() && steps.behat.outcome == 'failure' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: behat-screenshots-dev-${{ matrix.moodle }}-${{ matrix.php }}-${{ matrix.database }}
+          path: ${{ github.workspace }}/moodledata/behat_dump
+          retention-days: 7
+          if-no-files-found: warn
+
+  stale-files:
+    name: Stale files
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out plugin
+        uses: actions/checkout@v4
+
+      - name: Files removed in earlier releases must not still be present
+        run: |
+          # Unpacking a plugin ZIP adds and overwrites files but never deletes any, so a file
+          # removed upstream survives in an installed copy or in a repository updated that way.
+          # It then still autoloads, duplicates a class, or reads columns that no longer exist.
+          # This job turns that into a loud failure instead of confusing downstream errors.
+          list=db/removed_files.txt
+          if [[ ! -f "$list" ]]; then
+            echo "Keine Liste entfernter Dateien vorhanden - nichts zu pruefen."
+            exit 0
+          fi
+          rc=0
+          while IFS= read -r path; do
+            [[ -z "$path" || "$path" == \#* ]] && continue
+            if [[ -e "$path" ]]; then
+              echo "Veraltete Datei ist noch vorhanden: $path"
+              rc=1
+            fi
+          done < "$list"
+          if [[ $rc -ne 0 ]]; then
+            echo "Diese Dateien wurden in frueheren Releases entfernt und muessen geloescht werden."
+            exit 1
+          fi
+          echo "Keine veralteten Dateien gefunden."
+
+  ci-complete:
+    name: CI complete
+    needs: [lint-php, codeanalysis, quality, phpunit, behat, stale-files]
+    runs-on: ubuntu-22.04
+    if: always()
+    steps:
+      - name: All dev jobs must have succeeded
+        run: |
+          result="${{ needs.lint-php.result }}-${{ needs.codeanalysis.result }}-${{ needs.quality.result }}-${{ needs.phpunit.result }}-${{ needs.behat.result }}-${{ needs.stale-files.result }}"
+          if [[ "$result" == "success-success-success-success-success-success" ]]; then
+            echo "All dev CI jobs passed."
+          else
+            echo "CI result: $result - one or more jobs failed or were cancelled."
+            exit 1
+          fi

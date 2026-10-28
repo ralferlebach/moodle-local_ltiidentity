@@ -1,0 +1,30 @@
+# Files removed in earlier releases of this plugin.
+#
+# Updating a repository in place leaves a removed file behind, where it keeps being autoloaded and
+# executed. Moodle's own ZIP installation replaces the plugin directory as a whole and is not
+# affected, which is why this file is excluded from the release archive.
+#
+# The stale-files CI job fails while any of these paths still exists.
+#
+# 0.3.0 (2026-10-27): files of the April 2026 rump (0.1.0, version 2026042200) that was on the development branch
+# under the same component name. This implementation replaces it and has none of these files. If the repository
+# is updated by copying this release over the rump, they would survive; db/events.php would keep registering the
+# rump's post-login observer (classes/event/observer.php), which reads tables this implementation does not have.
+# The rump's workflow file is listed so that the CI owner removes it (this plugin does not edit workflows).
+.github/workflows/moodle-ci.yml
+classes/event/observer.php
+classes/form/admin_namerule_form.php
+classes/form/admin_user_form.php
+classes/form/course_bulk_form.php
+classes/form/selfservice_form.php
+classes/local/service/audit_service.php
+classes/local/service/email_verification_service.php
+classes/local/service/name_rule_resolver.php
+classes/local/service/override_repository.php
+classes/local/service/policy_resolver.php
+classes/local/service/reconciliation_service.php
+classes/output/course_report_table.php
+course.php
+db/events.php
+manage.php
+preferences.php

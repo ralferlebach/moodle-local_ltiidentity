@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+    <ruleset name="local_ltiidentity">
+        <description>PHPCS configuration for local_ltiidentity.</description>
+        <rule ref="moodle"/>
+        <exclude-pattern>*/tools/*</exclude-pattern>
+        <exclude-pattern>*/vendor/*</exclude-pattern>
+        <exclude-pattern>*/tests/playwright/*</exclude-pattern>
+        <exclude-pattern>*/tests/load/*</exclude-pattern>
+    </ruleset>
